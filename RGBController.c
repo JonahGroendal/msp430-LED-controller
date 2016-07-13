@@ -6,7 +6,7 @@
 #include <msp430.h>
 #include "LEDController.h"
 extern unsigned int LED_resolution;
-extern struct RGBLED LED[2];
+extern struct RGBLED LED[NUM_LEDS];
 
 /* Displays color and intensity for LED[ledNum].
  *
@@ -36,8 +36,6 @@ void displayRGB(int ledNum)
     		P1OUT &= ~LED[ledNum].RGBGPIO[2];
     	}
     }
-    /* Keep LEDs on for 1000 cycles */
-    __delay_cycles(100);
 
     // Turn off LEDs for color accuracy.
     // If an RGB value is '1', that color will stay on if it isn't
@@ -53,31 +51,40 @@ void displayRGB(int ledNum)
  * 
  * Takes about (size of LED array * LED_resolution) milliseconds @ 1MHZ to fully
  * display a color (based on timing of displayRGB())
+ *
+ * Takes about .05 * size of LED array * LED_RESOLUTION @ 1MHz @ 16MHz
  */
 void displayAllRGB() 
 {
-    int i, ledNum;
+    int i, ledNum, j;
+
+    /* Loop through LED_resolution. This is done quickly to create color
+       intensity through PWM */
     for (i=0; i< LED_resolution; i++)
     {
+        /* Loop through LEDs */
         for (ledNum=0; ledNum < sizeof(LED)/sizeof(LED[0]); ledNum++)
         {
-            if (LED[ledNum].RGB[0] > (i % LED_resolution)) {
-                P1OUT |= LED[ledNum].RGBGPIO[0];
-            }
-            else {
-                P1OUT &= ~LED[ledNum].RGBGPIO[0];
-            }
-            if (LED[ledNum].RGB[1] > (i % LED_resolution)) {
-                P1OUT |= LED[ledNum].RGBGPIO[1];
-            }
-            else {
-                P1OUT &= ~LED[ledNum].RGBGPIO[1];
-            }
-            if (LED[ledNum].RGB[2] > (i % LED_resolution)) {
-                P1OUT |= LED[ledNum].RGBGPIO[2];
-            }
-            else {
-                P1OUT &= ~LED[ledNum].RGBGPIO[2];
+            /* Loop through RGB */
+            for (j=0; j<3; j++)
+            {
+                /* Check if LED color is on pin P1.x or P2.x */
+                switch(LED[ledNum].P1orP2[j]) {
+                    case 1:
+                        if (LED[ledNum].RGB[j] > (i % LED_resolution)) {
+                            P1OUT |= LED[ledNum].RGBGPIO[j];
+                        } else {
+                            P1OUT &= ~LED[ledNum].RGBGPIO[j];
+                        }
+                        break;
+                    case 2:
+                        if (LED[ledNum].RGB[j] > (i % LED_resolution)) {
+                            P2OUT |= LED[ledNum].RGBGPIO[j];
+                        } else {
+                            P2OUT &= ~LED[ledNum].RGBGPIO[j];
+                        }
+                        break;
+                }
             }
         }
     }
@@ -85,10 +92,21 @@ void displayAllRGB()
     // If an RGB value is '1', that color will stay on if it isn't
     // explicitly turned off.
     for (ledNum=0; ledNum < sizeof(LED)/sizeof(LED[0]); ledNum++)
-    {
-        P1OUT &= ~LED[ledNum].RGBGPIO[0];
-        P1OUT &= ~LED[ledNum].RGBGPIO[1];
-        P1OUT &= ~LED[ledNum].RGBGPIO[2];
+    {   
+        /* Loop through RGB */
+        int j;
+        for (j=0; j<3; j++)
+        {
+            /* Check if LED color is on pin P1.x or P2.x */
+            switch(LED[ledNum].P1orP2[j]) {
+                    case 1:
+                        P1OUT &= ~LED[ledNum].RGBGPIO[j];
+                        break;
+                    case 2:
+                        P2OUT &= ~LED[ledNum].RGBGPIO[j];
+                        break;
+            }
+        }
     }
 }
 
@@ -138,7 +156,7 @@ void calculateRGB(double Wavelength, char RGB[])
         Blue = 0.0;
     }
 
-    /* Let the intensity fall off near the vision limits */
+    /* Let intensity fall off near vision limits */
     if((Wavelength >= 380) && (Wavelength<420)){
         factor = 0.3 + 0.7*(Wavelength - 380) / (420 - 380);
     }else if((Wavelength >= 420) && (Wavelength<701)){

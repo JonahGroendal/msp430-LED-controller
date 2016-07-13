@@ -1,11 +1,16 @@
+/* @author Jonah Groendal
+ * 5/27/16
+ *
+ */
+
 #include <msp430.h>
 #include <stdlib.h>
 #include "LEDController.h"
 extern int LED_resolution;
 unsigned long patturnIndex[] = {0,0,0,0};
 unsigned long patturnTime[] = {0,0,0,0};
-extern struct RGBLED LED[2];
-double referenceWavelength;		// variable to store wavelength value for random
+extern struct RGBLED LED[NUM_LEDS];
+double referenceWavelength[NUM_LEDS];		// variable to store wavelength value for random
 								// color mode.
 
 /* This array is used to store the color patturns to be displayed by the LEDs.
@@ -37,14 +42,24 @@ double referenceWavelength;		// variable to store wavelength value for random
  * each patturn to be a different length in memory. It would also allow each LEDs color patturn to be
  * different lengths in memory.
  */
-int patturns[][2][13] = 
+int patturns[][NUM_LEDS][10] = 
 {
 	{
+		{2,10000,380,680,2,10000,680,380, -1},
+		{2,10000,380,680,2,10000,680,380, -1},
+		{2,10000,380,680,2,10000,680,380, -1},
+		{2,10000,380,680,2,10000,680,380, -1},
+	},{
+		{1,1000, -1},
+		{1,1000, -1},
 		{1,1000, -1},
 		{1,1000, -1}
-	},
-		{2,10000,380,680,2,1000,680,380, -1},
-		{2,5000,380,680,2,5000,680,380, -1}
+	},{
+		{645,500,440,500, -1},
+		{440,500,645,500, -1},
+		{645,500,440,500, -1},
+		{440,500,645,500, -1},
+	}
 };
 
 void updateColors(int patturn)
@@ -59,7 +74,7 @@ void updateColors(int patturn)
 		if(patturns[patturn][i][patturnIndex[i]] == 2)
 		{
 			/* Set color by updating LED struct's 'wavelength' field */
-			LED[i].wavelength = CalculateColorShiftWavelength(patturns[patturn][i][patturnIndex[i]+1],
+			LED[i].wavelength = calculateColorShiftWavelength(patturns[patturn][i][patturnIndex[i]+1],
 															  patturns[patturn][i][patturnIndex[i]+2],
 															  patturns[patturn][i][patturnIndex[i]+3],
 															  				  (double)patturnTime[i]);
@@ -70,10 +85,10 @@ void updateColors(int patturn)
 		{
 			/* If this is the first color update of the argument set */
 			if (patturnTime[i] == 0)
-				referenceWavelength = generateRandomWavelength();
+				referenceWavelength[i] = generateRandomWavelength();
 
 			/* Set color by updating LED struct's 'wavelength' field */
-			LED[i].wavelength = referenceWavelength;
+			LED[i].wavelength = referenceWavelength[i];
 
 			nArgs = 2;
 		}
@@ -107,7 +122,7 @@ void updateColors(int patturn)
  * Calculates and returns the wavelength value for a color shift based on 
  * current patturn time.
  */
-double CalculateColorShiftWavelength(double transitionTime, double startWavelength,
+double calculateColorShiftWavelength(double transitionTime, double startWavelength,
 										  double endWavelength, double currentTime)
 {
 	return (currentTime*COLOR_UPDATE_PERIOD/transitionTime) * (endWavelength-startWavelength) + startWavelength;
